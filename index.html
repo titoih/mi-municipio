@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi municipio | Datos Abiertos Cabildo</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0b5fff" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f6f7fb;color:#0b1220}
+    header{background:#fff;border-bottom:1px solid #e6e8ef;padding:16px 18px}
+    main{max-width:980px;margin:0 auto;padding:18px}
+    .card{background:#fff;border:1px solid #e6e8ef;border-radius:14px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.04)}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    select,button,input{padding:10px 12px;border-radius:10px;border:1px solid #cfd6e6;background:#fff}
+    button{cursor:pointer;background:#0b5fff;color:#fff;border-color:#0b5fff}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .muted{color:#5b6476;font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    h1{font-size:20px;margin:0 0 6px}
+    h2{font-size:16px;margin:0 0 6px}
+    ul{margin:8px 0 0 18px}
+    a{color:#0b5fff;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef3ff;color:#0b5fff;font-size:12px}
+    .error{color:#b00020}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .smallbtn{background:#fff;color:#0b5fff;border-color:#cfd6e6}
+    .smallbtn:hover{border-color:#0b5fff}
+    .chip{display:inline-flex;gap:8px;align-items:center}
+    .chip input{width:auto;padding:0;border:none}
+    .btnbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .footlink{margin-top:10px;font-size:13px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>¿Qué datos públicos tiene el Cabildo sobre tu municipio?</h1>
+    <div class="muted">APP (PWA) basada en datos abiertos oficiales de datos.tenerife.es</div>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="row">
+        <label for="municipio"><strong>Elige municipio</strong></label>
+        <select id="municipio"></select>
+        <button id="btn" disabled>Ver ficha</button>
+        <span id="status" class="muted"></span>
+      </div>
+
+      <div class="controls">
+        <label class="chip muted">
+          <input type="checkbox" id="remember" />
+          Recordar mi municipio
+        </label>
+        <span class="muted">Consejo: en el móvil, luego podrás usar “Añadir a pantalla de inicio” para instalarla como APP.</span>
+      </div>
+    </div>
+
+    <div id="out"></div>
+
+    <div class="card">
+      <h2>Transparencia y reutilización</h2>
+      <div class="muted">
+        Esta app convierte datos abiertos en información práctica para la ciudadanía y enlaza siempre a las fuentes oficiales.
+      </div>
+      <ul class="muted">
+        <li><a href="https://datos.tenerife.es/" target="_blank" rel="noreferrer">Portal de Datos Abiertos del Cabildo</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // En local desactivamos Service Worker para evitar cachés durante desarrollo
+    if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>
