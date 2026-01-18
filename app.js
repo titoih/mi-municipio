@@ -952,4 +952,75 @@ loadAll()
     $status.innerHTML = `<span class="error">Error: ${escapeHTML(err.message || String(err))}</span>`;
   });
 
+// ===== Install Banner (Android + iOS) =====
+let deferredInstallPrompt = null;
+
+function initInstallBanner() {
+  const banner = document.getElementById("installBanner");
+  const btn = document.getElementById("installBannerBtn");
+  const close = document.getElementById("installBannerClose");
+  const text = document.getElementById("installBannerText");
+
+  if (!banner || !btn || !close) return;
+
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  if (isStandalone) return; // si ya está instalada, no mostramos banner
+
+  // Si quieres que SIEMPRE salga, comenta estas 2 líneas:
+  const dismissed = localStorage.getItem("installBannerDismissed");
+  if (dismissed === "1") return;
+
+  // iOS: mostramos banner que abre instrucciones
+  if (isIOS) {
+    banner.style.display = "block";
+    btn.textContent = "Cómo instalar";
+    if (text) text.textContent = "Añádela a tu pantalla de inicio (Safari)";
+
+    const modal = document.getElementById("iosInstallModal");
+    const modalClose = document.getElementById("iosInstallClose");
+    const modalOk = document.getElementById("iosInstallOk");
+
+    const openModal = () => { if (modal) modal.style.display = "block"; };
+    const closeModal = () => { if (modal) modal.style.display = "none"; };
+
+    btn.addEventListener("click", openModal);
+    if (modalClose) modalClose.addEventListener("click", closeModal);
+    if (modalOk) modalOk.addEventListener("click", closeModal);
+    if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  } else {
+    // Android: esperamos a que Chrome dispare el evento
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      banner.style.display = "block";
+      btn.textContent = "Instalar";
+      if (text) text.textContent = "Instálala como app (sin navegador)";
+    });
+
+    btn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      banner.style.display = "none";
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      banner.style.display = "none";
+    });
+  }
+
+  close.addEventListener("click", () => {
+    banner.style.display = "none";
+    localStorage.setItem("installBannerDismissed", "1");
+  });
+}
+try { initInstallBanner(); } catch (e) { console.warn(e); }
 
