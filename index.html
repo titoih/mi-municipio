@@ -5,195 +5,206 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Tenerife al Aire Libre | Datos Abiertos Cabildo</title>
+
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#0b5fff" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-<style>
-  :root{
-    --bg:#f6f7fb;
-    --card:#ffffff;
-    --text:#0b1220;
-    --muted:#5b6476;
-    --line:#e6e8ef;
-    --accent:#0b5fff;
-    --accent-weak:#eef3ff;
-    --radius:16px;
-  }
 
-  *{box-sizing:border-box}
-  body{
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
-    margin:0; background:var(--bg); color:var(--text);
-  }
-  header{
-    background:var(--card);
-    border-bottom:1px solid var(--line);
-    padding:16px 18px;
-    position:sticky; top:0; z-index:10;
-  }
-  h1{font-size:18px; margin:0 0 6px; letter-spacing:-.2px}
-  main{max-width:980px; margin:0 auto; padding:18px}
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#0b1220;
+      --muted:#5b6476;
+      --line:#e6e8ef;
+      --accent:#0b5fff;
+      --accent-weak:#eef3ff;
+      --radius:16px;
+    }
 
-  .card{
-    background:var(--card);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:14px;
-    margin:12px 0;
-    box-shadow:0 6px 20px rgba(0,0,0,.05);
-  }
+    *{box-sizing:border-box}
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
+      margin:0; background:var(--bg); color:var(--text);
+    }
 
-  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-  .grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
-  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+    header{
+      background:var(--card);
+      border-bottom:1px solid var(--line);
+      position:sticky; top:0; z-index:10;
+    }
 
-  .muted{color:var(--muted); font-size:13px; line-height:1.35}
-  h2{font-size:15px; margin:0 0 6px; letter-spacing:-.1px}
-  a{color:var(--accent); text-decoration:none}
-  a:hover{text-decoration:underline}
+    .headwrap{
+      max-width:980px;
+      margin:0 auto;
+      padding:14px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
 
-  select,input,button{
-    padding:10px 12px;
-    border-radius:12px;
-    border:1px solid #cfd6e6;
-    background:#fff;
-    font-size:14px;
-  }
-  input[type="search"]{flex:1; min-width:220px}
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
 
-  button{
-    cursor:pointer;
-    border-color:var(--accent);
-    background:var(--accent);
-    color:#fff;
-    font-weight:650;
-  }
-  button:disabled{opacity:.55; cursor:not-allowed}
+    .brand img{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      object-fit:cover;
+      box-shadow:0 8px 18px rgba(0,0,0,.08);
+    }
 
-  .btn-secondary{
-    background:#fff;
-    color:var(--accent);
-    border-color:#cfd6e6;
-    font-weight:650;
-  }
-  .btn-secondary:hover{border-color:var(--accent)}
+    .brandtext{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+    }
 
-  .badge{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:3px 10px;
-    border-radius:999px;
-    background:var(--accent-weak);
-    color:var(--accent);
-    font-size:12px;
-    border:1px solid #d9e3ff;
-  }
+    .brandtext strong{
+      font-size:15px;
+      letter-spacing:-.2px;
+      line-height:1.1;
+    }
 
-  .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
-  .chip{
-    display:inline-flex;
-    padding:3px 10px;
-    border-radius:999px;
-    border:1px solid var(--line);
-    color:var(--muted);
-    background:#fff;
-    font-size:12px;
-  }
+    .brandtext span{
+      font-size:12.5px;
+      color:var(--muted);
+      line-height:1.2;
+      margin-top:2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:64vw;
+    }
 
-  /* Listas limpias tipo app */
-  ul.clean{
-    list-style:none;
-    padding:0;
-    margin:10px 0 0;
-    border-top:1px solid var(--line);
-  }
-  ul.clean li{
-    padding:10px 0;
-    border-bottom:1px solid var(--line);
-  }
-  .item-title{font-weight:700; font-size:14px; margin:0}
-  .item-sub{margin-top:4px}
-  .item-actions{margin-top:6px; display:flex; gap:10px; flex-wrap:wrap}
-  .item-actions a{font-size:13px}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #d9e3ff;
+      background:var(--accent-weak);
+      color:var(--accent);
+      font-weight:750;
+      font-size:12px;
+      white-space:nowrap;
+    }
 
-  .footlink{margin-top:10px; font-size:12.5px}
+    main{max-width:980px; margin:0 auto; padding:18px}
 
-  /* Banner */
-  #installBanner > div { max-width:980px; margin:0 auto; }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:14px;
+      margin:12px 0;
+      box-shadow:0 6px 20px rgba(0,0,0,.05);
+    }
 
-  /* --- LISTAS LIMPIAS --- */
-ul.clean { list-style: none; padding: 0; margin: 10px 0 0; }
-ul.clean li { padding: 12px 0; border-bottom: 1px solid #e6e8ef; }
-ul.clean li:last-child { border-bottom: 0; }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+    @media (max-width:900px){ .grid{grid-template-columns:1fr} }
 
-/* Título item */
-.item-title { font-weight: 750; font-size: 15px; line-height: 1.25; margin: 0; }
-.item-sub { margin-top: 6px; color: #5b6476; font-size: 13px; line-height: 1.35; }
+    .muted{color:var(--muted); font-size:13px; line-height:1.35}
+    h2{font-size:15px; margin:0 0 6px; letter-spacing:-.1px}
+    a{color:var(--accent); text-decoration:none}
+    a:hover{text-decoration:underline}
 
-/* Chips más discretos */
-.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.chip {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid #e6e8ef;
-  background: #fff;
-  color: #5b6476;
-}
+    select,input,button{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid #cfd6e6;
+      background:#fff;
+      font-size:14px;
+    }
+    input[type="search"]{flex:1; min-width:220px}
 
-/* Acciones tipo botones suaves */
-.item-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-.action {
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size: 13px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: 1px solid #e6e8ef;
-  background:#fff;
-  color:#0b5fff;
-  text-decoration:none;
-}
-.action:hover { border-color:#0b5fff; text-decoration:none; }
+    button{
+      cursor:pointer;
+      border-color:var(--accent);
+      background:var(--accent);
+      color:#fff;
+      font-weight:650;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
 
-/* "Fuente oficial" más discreto */
-.footlink { margin-top: 10px; font-size: 12.5px; color:#5b6476; }
-.footlink a { color:#5b6476; text-decoration: underline; }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 10px;
+      border-radius:999px;
+      background:var(--accent-weak);
+      color:var(--accent);
+      font-size:12px;
+      border:1px solid #d9e3ff;
+    }
 
-.item { padding: 10px 0; border-bottom: 1px solid #eef0f6; }
-.item:last-child { border-bottom: none; }
+    ul.clean{
+      list-style:none;
+      padding:0;
+      margin:10px 0 0;
+      border-top:1px solid var(--line);
+    }
+    ul.clean li{
+      padding:12px 0;
+      border-bottom:1px solid var(--line);
+    }
+    ul.clean li:last-child { border-bottom: 0; }
 
-.title { font-weight: 700; margin-bottom: 4px; }
-.muted { color: #5b6577; margin-top: 6px; line-height: 1.35; }
+    .item { padding: 10px 0; border-bottom: 1px solid #eef0f6; }
+    .item:last-child { border-bottom: none; }
 
-.chips { margin-top: 6px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .title { font-weight: 700; margin-bottom: 4px; }
 
-.linkbtn{
-  background: none; border: none; padding: 0; color: #0b5fff;
-  cursor: pointer; font-size: 14px; margin-top: 6px;
-}
-</style>
+    .footlink{margin-top:10px; font-size:12.5px; color:#5b6476;}
+    .footlink a{ color:#5b6476; text-decoration:underline; }
 
+    .linkbtn{
+      background:none; border:none; padding:0; color:#0b5fff;
+      cursor:pointer; font-size:14px; margin-top:6px;
+    }
+
+    /* Banner */
+    #installBanner > div { max-width:980px; margin:0 auto; }
+  </style>
 </head>
+
 <body>
   <header>
-    <h1>Convertimos datos abiertos en utilidad directa: planificar una ruta, descubrir lugares y decidir qué actividad hacer, con un clic.</h1>
-    <div class="muted">APP (PWA) basada en datos abiertos oficiales de datos.tenerife.es</div>
+    <div class="headwrap">
+      <div class="brand">
+        <img src="icon-192.png" alt="Tenerife al Aire Libre">
+        <div class="brandtext">
+          <strong>Tenerife al Aire Libre</strong>
+          <span>Senderos, puntos de interés y actividades con datos oficiales</span>
+        </div>
+      </div>
+
+      <div class="pill" title="Datos oficiales del Cabildo">
+        Datos Abiertos Cabildo
+      </div>
+    </div>
   </header>
 
   <main>
     <div class="card">
       <div class="row">
-        <label for="municipio"><strong>Elige municipio</strong></label>
+        <label for="municipio"><strong>Municipio</strong></label>
         <select id="municipio"></select>
         <button id="btn" disabled>Ver ficha</button>
         <span id="status" class="muted"></span>
       </div>
 
-      <div class="controls">
-        <span class="muted"></span>
+      <div class="muted" style="margin-top:8px">
+        Elige un municipio para descubrir rutas, lugares y planes al aire libre.
       </div>
     </div>
 
@@ -202,78 +213,83 @@ ul.clean li:last-child { border-bottom: 0; }
     <div class="card">
       <h2>Transparencia y reutilización</h2>
       <div class="muted">
-        Esta app convierte datos abiertos en información práctica para la ciudadanía y enlaza siempre a las fuentes oficiales.
+        Esta app reutiliza datos abiertos del Cabildo y enlaza siempre a las fuentes oficiales.
       </div>
-      <ul class="muted">
-        <li><a href="https://datos.tenerife.es/" target="_blank" rel="noreferrer">Portal de Datos Abiertos del Cabildo</a></li>
+      <ul class="muted" style="margin-top:8px">
+        <li>
+          <a href="https://datos.tenerife.es/" target="_blank" rel="noreferrer">
+            Portal de Datos Abiertos del Cabildo de Tenerife
+          </a>
+        </li>
       </ul>
     </div>
   </main>
-<!-- Install Banner -->
-<div id="installBanner" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:9999;">
-  <div style="background:#fff; border:1px solid #e6e8ef; border-radius:14px; padding:12px;
-              box-shadow:0 10px 28px rgba(0,0,0,.14); display:flex; gap:10px; align-items:center;">
-    <img src="icon-192.png" alt="Icon" style="width:40px; height:40px; border-radius:12px;
-                                   border:1px solid #e6e8ef; object-fit:cover;">
-    <div style="flex:1; min-width:0;">
-      <div style="font-weight:800; font-size:14px; line-height:1.2;">Instala "Tenerife al Aire Libre "</div>
-      <div id="installBannerText" style="color:#5b6476; font-size:12.5px; margin-top:2px;">
-        Acceso rápido desde tu pantalla de inicio
+
+  <!-- Install Banner -->
+  <div id="installBanner" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:9999;">
+    <div style="background:#fff; border:1px solid #e6e8ef; border-radius:14px; padding:12px;
+                box-shadow:0 10px 28px rgba(0,0,0,.14); display:flex; gap:10px; align-items:center;">
+      <img src="icon-192.png" alt="Icon" style="width:40px; height:40px; border-radius:12px;
+                                     border:1px solid #e6e8ef; object-fit:cover;">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:800; font-size:14px; line-height:1.2;">Instala Tenerife al Aire Libre</div>
+        <div id="installBannerText" style="color:#5b6476; font-size:12.5px; margin-top:2px;">
+          Acceso rápido desde tu pantalla de inicio
+        </div>
+      </div>
+
+      <button id="installBannerBtn"
+        style="background:#0b5fff; color:#fff; border:1px solid #0b5fff; border-radius:10px;
+               padding:9px 12px; font-weight:700; cursor:pointer;">
+        Instalar
+      </button>
+
+      <button id="installBannerClose" aria-label="Cerrar"
+        style="background:#fff; color:#5b6476; border:1px solid #cfd6e6; border-radius:10px;
+               padding:9px 10px; cursor:pointer;">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <!-- iOS Help Modal -->
+  <div id="iosInstallModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+                                   z-index:10000; padding:18px;">
+    <div style="max-width:560px; margin:0 auto; background:#fff; border-radius:16px; padding:14px;
+                box-shadow:0 12px 40px rgba(0,0,0,.22);">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-weight:900;">Instalar en iPhone / iPad</div>
+        <button id="iosInstallClose"
+          style="background:#fff; color:#5b6476; border:1px solid #cfd6e6; border-radius:10px;
+                 padding:8px 10px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="color:#5b6476; font-size:14px; margin-top:8px;">
+        En iOS se instala así:
+      </div>
+
+      <ol style="margin:10px 0 0 18px; color:#0b1220; font-size:14px;">
+        <li style="margin:8px 0;">
+          Pulsa <strong>Compartir</strong>
+          <span style="display:inline-block; padding:2px 8px; border:1px solid #e6e8ef; border-radius:999px; margin-left:6px;">⬆️</span>
+        </li>
+        <li style="margin:8px 0;">
+          Elige <strong>“Añadir a pantalla de inicio”</strong>
+        </li>
+      </ol>
+
+      <div style="margin-top:10px; padding:10px; border:1px dashed #cfd6e6; border-radius:12px;
+                  color:#5b6476; font-size:13px;">
+        Importante: tiene que ser en <strong>Safari</strong> (no Chrome ni navegador dentro de Instagram/WhatsApp).
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+        <button id="iosInstallOk"
+          style="background:#0b5fff; color:#fff; border:1px solid #0b5fff; border-radius:10px;
+                 padding:10px 12px; font-weight:700; cursor:pointer;">Vale</button>
       </div>
     </div>
-
-    <button id="installBannerBtn"
-      style="background:#0b5fff; color:#fff; border:1px solid #0b5fff; border-radius:10px;
-             padding:9px 12px; font-weight:700; cursor:pointer;">
-      Instalar
-    </button>
-
-    <button id="installBannerClose" aria-label="Cerrar"
-      style="background:#fff; color:#5b6476; border:1px solid #cfd6e6; border-radius:10px;
-             padding:9px 10px; cursor:pointer;">
-      ✕
-    </button>
   </div>
-</div>
-
-<!-- iOS Help Modal -->
-<div id="iosInstallModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
-                                 z-index:10000; padding:18px;">
-  <div style="max-width:560px; margin:0 auto; background:#fff; border-radius:16px; padding:14px;
-              box-shadow:0 12px 40px rgba(0,0,0,.22);">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-      <div style="font-weight:900;">Instalar en iPhone / iPad</div>
-      <button id="iosInstallClose"
-        style="background:#fff; color:#5b6476; border:1px solid #cfd6e6; border-radius:10px;
-               padding:8px 10px; cursor:pointer;">✕</button>
-    </div>
-
-    <div style="color:#5b6476; font-size:14px; margin-top:8px;">
-      En iOS se instala así:
-    </div>
-
-    <ol style="margin:10px 0 0 18px; color:#0b1220; font-size:14px;">
-      <li style="margin:8px 0;">
-        Pulsa <strong>Compartir</strong>
-        <span style="display:inline-block; padding:2px 8px; border:1px solid #e6e8ef; border-radius:999px; margin-left:6px;">⬆️</span>
-      </li>
-      <li style="margin:8px 0;">
-        Elige <strong>“Añadir a pantalla de inicio”</strong>
-      </li>
-    </ol>
-
-    <div style="margin-top:10px; padding:10px; border:1px dashed #cfd6e6; border-radius:12px;
-                color:#5b6476; font-size:13px;">
-      Importante: tiene que ser en <strong>Safari</strong> (no Chrome ni navegador dentro de Instagram/WhatsApp).
-    </div>
-
-    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-      <button id="iosInstallOk"
-        style="background:#0b5fff; color:#fff; border:1px solid #0b5fff; border-radius:10px;
-               padding:10px 12px; font-weight:700; cursor:pointer;">Vale</button>
-    </div>
-  </div>
-</div>
 
   <script src="app.js"></script>
   <script>
