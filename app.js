@@ -198,11 +198,6 @@ function detectDifficultyKey(sample) {
   return findField(sample, candidates);
 }
 
-function detectDateKey(sample) {
-  const candidates = ["fecha","Fecha","date","Date","fecha_inicio","Fecha_inicio","inicio","Inicio","fecha_actividad","fecha_evento"];
-  return findField(sample, candidates);
-}
-
 function getLatLon(it) {
   const lat = it["latitud"] || it["lat"] || it["LATITUD"] || it["latitude"] || it["Latitude"];
   const lon = it["longitud"] || it["lon"] || it["LONGITUD"] || it["longitude"] || it["Longitude"];
@@ -305,11 +300,9 @@ async function loadAll() {
   $btn.disabled = false;
 }
 
-/* FIN PARTE 1 */
-
 // ====== Render items ======
 function buildItemHTML(datasetKey, it, keys) {
-  // --- NATURALEZA (menos emojis + más aire) ---
+  // --- NATURALEZA (sin dropdown de grupos) ---
   if (datasetKey === "naturaleza") {
     const nombre = (it["actividad_nombre"] || "").trim();
     const tipo = (it["actividad_tipo"] || "").trim();
@@ -346,12 +339,9 @@ function buildItemHTML(datasetKey, it, keys) {
       <li class="item">
         <div class="title">${escapeHTML(nombre || "Actividad")}</div>
         ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
-
         ${desc ? `<div class="muted">${escapeHTML(desc)}</div>` : ""}
-
         ${dias ? `<div class="muted">Días: ${escapeHTML(dias)}</div>` : ""}
         ${antel != null ? `<div class="muted">Reserva: hasta ${Math.round(antel)} días de antelación</div>` : ""}
-
         ${distLine ? `<div class="muted">${escapeHTML(distLine)}</div>` : ""}
         ${geoLine ? `<div class="muted">${geoLine}</div>` : ""}
       </li>
@@ -366,7 +356,6 @@ function buildItemHTML(datasetKey, it, keys) {
     const inicio = (it["itinerario_inicio"] || "").trim();
     const fin = (it["itinerario_fin"] || "").trim();
 
-    // ✅ aquí está el fix clave
     const distanciaKm = fmtKmFromMeters(it["itinerario_distancia"]);
 
     const altMin = fmtMeters(it["itinerario_altura_minima"]);
@@ -377,7 +366,6 @@ function buildItemHTML(datasetKey, it, keys) {
     const clase = (it["itinerario_clase"] || "").trim();
     const modalidad = (it["itinerario_modalidad"] || "").trim();
 
-    // Limpieza: municipios/espacios con separadores feos tipo "A|B|C"
     const municipios = (it["municipios_nombres"] || "").trim().replaceAll("|", ", ");
     const espacios = (it["espacios_naturales"] || "").trim().replaceAll("|", ", ");
 
@@ -407,7 +395,7 @@ function buildItemHTML(datasetKey, it, keys) {
     `;
   }
 
-  // --- PUNTOS (✅ “Leer más” para no cortar) ---
+  // --- PUNTOS (✅ Leer más / Ver menos bien) ---
   if (datasetKey === "puntos") {
     const nombre = (it["punto_interes_nombre"] || "").trim();
     const tipo = (it["punto_interes_tipo"] || "").trim();
@@ -446,19 +434,20 @@ function buildItemHTML(datasetKey, it, keys) {
         ${
           descFull
             ? `
-              <div class="muted" id="poi-desc-${safeUID}">
+              <div class="muted" id="poi-short-${safeUID}" style="display:block">
                 ${escapeHTML(shortDesc)}
+              </div>
+              <div class="muted" id="poi-full-${safeUID}" style="display:none">
+                ${escapeHTML(descFull)}
               </div>
               ${
                 needsMore
-                  ? `<button class="linkbtn" type="button" data-poi-more="1" data-poi-id="${safeUID}">
-                      Leer más
-                    </button>`
+                  ? `<button class="linkbtn" type="button"
+                        data-poi-toggle="1"
+                        data-poi-id="${safeUID}"
+                        data-open="0">Leer más</button>`
                   : ``
               }
-              <div class="poi-full" id="poi-full-${safeUID}" style="display:none">
-                ${escapeHTML(descFull)}
-              </div>
             `
             : ""
         }
@@ -531,13 +520,6 @@ function renderFilters(datasetKey) {
       <label class="chip muted" style="margin-right:10px">
         <input type="checkbox" id="${id}-grupos" ${st.natGrupos ? "checked" : ""}/> Grupos
       </label>
-      <select id="${id}-gsize" class="smallbtn">
-        <option value="all">Grupo: cualquiera</option>
-        <option value="4">4+</option>
-        <option value="10">10+</option>
-        <option value="20">20+</option>
-        <option value="40">40+</option>
-      </select>
       <button id="${id}-near" class="smallbtn" type="button">Cerca de mí</button>
     ` : "";
 
@@ -584,7 +566,7 @@ function renderCard(datasetKey) {
       }
 
       <div class="muted footlink">
-        <a href="${ds.source}" target="_blank" rel="noreferrer"></a>
+        <a href="${ds.source}" target="_blank" rel="noreferrer">Ver fuente oficial</a>
       </div>
     </div>
   `;
@@ -601,18 +583,9 @@ function recomputeFiltered(datasetKey) {
     out = applyPoiTypeFilter(out, st.poiType);
   }
   if (datasetKey === "naturaleza") {
-    // filtros naturaleza
     if (st.natCaravana) out = out.filter(it => toBoolLoose(it["permite_caravana"]) === true);
     if (st.natPernocta) out = out.filter(it => toBoolLoose(it["pernocta"]) === true);
     if (st.natGrupos) out = out.filter(it => toBoolLoose(it["actividad_para_grupos"]) === true);
-    if (st.natGroupSize && st.natGroupSize !== "all") {
-      const need = parseInt(st.natGroupSize, 10);
-      out = out.filter(it => {
-        const mx = toNumberSafe(it["maximo_personas"]);
-        if (mx === null) return false;
-        return mx >= need;
-      });
-    }
   }
 
   out = applySearch(out, st.query);
@@ -674,7 +647,6 @@ function attachCardHandlers(datasetKey) {
   const $caravana = document.getElementById(`${id}-caravana`);
   const $pernocta = document.getElementById(`${id}-pernocta`);
   const $grupos = document.getElementById(`${id}-grupos`);
-  const $gsize = document.getElementById(`${id}-gsize`);
   const $near = document.getElementById(`${id}-near`);
 
   if ($search) {
@@ -718,13 +690,6 @@ function attachCardHandlers(datasetKey) {
   if ($grupos) {
     $grupos.addEventListener("change", () => {
       st.natGrupos = $grupos.checked;
-      recomputeFiltered(datasetKey);
-      updateCardDOM(datasetKey);
-    });
-  }
-  if ($gsize) {
-    $gsize.addEventListener("change", () => {
-      st.natGroupSize = $gsize.value;
       recomputeFiltered(datasetKey);
       updateCardDOM(datasetKey);
     });
@@ -774,22 +739,25 @@ function attachCardHandlers(datasetKey) {
         return;
       }
 
-      const moreBtn = e.target.closest("button[data-poi-more='1']");
-      if (moreBtn) {
-        const pid = moreBtn.getAttribute("data-poi-id");
-        const full = document.getElementById(`poi-full-${pid}`);
-        const desc = document.getElementById(`poi-desc-${pid}`);
-        if (!full || !desc) return;
+      const toggleBtn = e.target.closest("button[data-poi-toggle='1']");
+      if (toggleBtn) {
+        const pid = toggleBtn.getAttribute("data-poi-id");
+        const shortEl = document.getElementById(`poi-short-${pid}`);
+        const fullEl = document.getElementById(`poi-full-${pid}`);
+        if (!shortEl || !fullEl) return;
 
-        const isOpen = full.style.display !== "none";
-        if (isOpen) {
-          full.style.display = "none";
-          moreBtn.textContent = "Leer más";
+        const open = toggleBtn.getAttribute("data-open") === "1";
+
+        if (open) {
+          fullEl.style.display = "none";
+          shortEl.style.display = "block";
+          toggleBtn.textContent = "Leer más";
+          toggleBtn.setAttribute("data-open", "0");
         } else {
-          full.style.display = "block";
-          desc.innerHTML = full.innerHTML; // sustituye por texto completo
-          full.style.display = "none";
-          moreBtn.textContent = "Ver menos";
+          shortEl.style.display = "none";
+          fullEl.style.display = "block";
+          toggleBtn.textContent = "Ver menos";
+          toggleBtn.setAttribute("data-open", "1");
         }
       }
     });
@@ -840,7 +808,6 @@ function showMunicipio(m) {
       natCaravana: false,
       natPernocta: false,
       natGrupos: false,
-      natGroupSize: "all",
       userLoc: null,
       sortNear: false
     };
@@ -890,7 +857,6 @@ function initMunicipiosUI() {
     return;
   }
 
-  // ⚠️ usa sel/btn, NO $municipio/$btn si cambiaste IDs en el HTML
   sel.innerHTML = "";
   MUNICIPIOS.forEach(m => {
     const opt = document.createElement("option");
