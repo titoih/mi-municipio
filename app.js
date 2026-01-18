@@ -37,7 +37,6 @@ const $municipio = document.getElementById("municipio");
 const $btn = document.getElementById("btn");
 const $out = document.getElementById("out");
 const $status = document.getElementById("status");
-const $remember = document.getElementById("remember");
 
 // ====== Estado ======
 let cache = null;
@@ -921,27 +920,20 @@ function showMunicipio(m) {
 
 // ====== Init ======
 function initMunicipiosUI() {
+const sel = document.getElementById("municipio");
+const btn = document.getElementById("btn");
+
+if (!sel || !btn) {
+  console.error("Faltan elementos en el HTML:", { sel, btn });
+  return;
+}
+
   $municipio.innerHTML = "";
   MUNICIPIOS.forEach(m => {
     const opt = document.createElement("option");
     opt.value = m;
     opt.textContent = m;
     $municipio.appendChild(opt);
-  });
-
-  const saved = localStorage.getItem("favMunicipio");
-  if (saved && MUNICIPIOS.includes(saved)) {
-    $municipio.value = saved;
-    $remember.checked = true;
-  }
-
-  $remember.addEventListener("change", () => {
-    if ($remember.checked) localStorage.setItem("favMunicipio", $municipio.value);
-    else localStorage.removeItem("favMunicipio");
-  });
-
-  $municipio.addEventListener("change", () => {
-    if ($remember.checked) localStorage.setItem("favMunicipio", $municipio.value);
   });
 
   $btn.addEventListener("click", () => showMunicipio($municipio.value));
@@ -959,3 +951,5 @@ loadAll()
   .catch(err => {
     $status.innerHTML = `<span class="error">Error: ${escapeHTML(err.message || String(err))}</span>`;
   });
+
+
