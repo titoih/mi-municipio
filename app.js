@@ -82,10 +82,19 @@ function fmtMeters(x) {
   return `${Math.round(n)}`;
 }
 
+// km a 1 decimal (cuando ya es km)
 function fmtKm(x) {
   const n = toNumberSafe(x);
   if (n === null) return "";
   return `${n.toFixed(1)}`;
+}
+
+// ✅ Itinerarios: el CSV trae distancia en METROS
+function fmtKmFromMeters(metersVal) {
+  const m = toNumberSafe(metersVal);
+  if (m === null) return "";
+  const km = m / 1000;
+  return km.toFixed(1);
 }
 
 function clampText(s, max = 160) {
@@ -211,18 +220,6 @@ function mapsNavUrl(lat, lon) {
   return `https://www.google.com/maps/dir/?api=1&destination=${d}&travelmode=driving`;
 }
 
-function getContact(it) {
-  const emailKey = findField(it, ["email","Email","correo","Correo","correo_electronico","mail"]);
-  const phoneKey = findField(it, ["telefono","Teléfono","phone","Phone","movil","Móvil"]);
-  const email = emailKey ? (it[emailKey] || "").trim() : "";
-  const phone = phoneKey ? (it[phoneKey] || "").trim() : "";
-  return { email, phone };
-}
-
-function cleanPhone(phone) {
-  return (phone || "").replace(/[^\d+]/g, "");
-}
-
 function filtroMunicipioFlexible(items, municipio) {
   const m = normMunicipio(municipio);
   const alt = (m === "san cristobal de la laguna") ? "la laguna" : m;
@@ -244,31 +241,6 @@ function applyDifficultyFilter(items, difficultyKey, level) {
   return items.filter(it => normText(it[difficultyKey]).includes(wanted));
 }
 
-function applyDateQuickFilter(items, dateKey, mode) {
-  if (!dateKey || !mode || mode === "all") return items;
-
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const day = todayStart.getDay(); // 0..6
-
-  const saturday = new Date(todayStart);
-  saturday.setDate(todayStart.getDate() + ((6 - day + 7) % 7));
-  const sunday = new Date(saturday);
-  sunday.setDate(saturday.getDate() + 1);
-
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-  return items.filter(it => {
-    const d = new Date(it[dateKey]);
-    if (isNaN(d)) return false;
-
-    if (mode === "today") return d >= todayStart && d < new Date(todayStart.getTime() + 86400000);
-    if (mode === "weekend") return d >= saturday && d <= sunday;
-    if (mode === "month") return d >= todayStart && d <= monthEnd;
-    return true;
-  });
-}
-
 function applyPoiTypeFilter(items, typeValue) {
   if (!typeValue || typeValue === "all") return items;
   const wanted = normText(typeValue);
@@ -284,32 +256,6 @@ function toBoolLoose(v) {
   return null;
 }
 
-function applyNatureFilters(items, st) {
-  let out = items;
-
-  if (st.natCaravana) {
-    out = out.filter(it => toBoolLoose(it["permite_caravana"]) === true);
-  }
-  if (st.natPernocta) {
-    out = out.filter(it => toBoolLoose(it["pernocta"]) === true);
-  }
-  if (st.natGrupos) {
-    out = out.filter(it => toBoolLoose(it["actividad_para_grupos"]) === true);
-  }
-
-  // Tamaño grupo: usa maximo_personas si existe
-  if (st.natGroupSize && st.natGroupSize !== "all") {
-    const need = parseInt(st.natGroupSize, 10);
-    out = out.filter(it => {
-      const mx = toNumberSafe(it["maximo_personas"]);
-      if (mx === null) return false;
-      return mx >= need;
-    });
-  }
-
-  return out;
-}
-
 // Geodistancia
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -320,13 +266,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
             Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
             Math.sin(dLon/2)**2;
   return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function fmtDaysAvailable(v) {
-  const s = (v || "").toString().trim();
-  if (!s) return "";
-  // Si viene como lista, lo dejamos "bonito" sin inventar
-  return s.replace(/\s+/g, " ");
 }
 
 function pickFallbackFields(it) {
@@ -356,7 +295,7 @@ async function loadAll() {
         nameKey: detectNameKey(sample),
         placeKey: detectPlaceKey(sample),
         difficultyKey: (key === "itinerarios") ? detectDifficultyKey(sample) : null,
-        dateKey: (key === "naturaleza") ? detectDateKey(sample) : null
+        dateKey: null
       }
     };
   }
@@ -366,64 +305,70 @@ async function loadAll() {
   $btn.disabled = false;
 }
 
+/* FIN PARTE 1 */
+
 // ====== Render items ======
 function buildItemHTML(datasetKey, it, keys) {
-  // ----- NATURALEZA: ficha útil -----
+  // --- NATURALEZA (menos emojis + más aire) ---
   if (datasetKey === "naturaleza") {
     const nombre = (it["actividad_nombre"] || "").trim();
     const tipo = (it["actividad_tipo"] || "").trim();
     const infra = (it["infraestructura"] || "").trim();
-    const desc = (it["actividad_descripcion"] || "").trim();
+    const descFull = (it["actividad_descripcion"] || "").trim();
+    const desc = clampText(descFull, 180);
 
     const caravana = toBoolLoose(it["permite_caravana"]);
     const pernocta = toBoolLoose(it["pernocta"]);
     const grupos = toBoolLoose(it["actividad_para_grupos"]);
     const maxPers = toNumberSafe(it["maximo_personas"]);
     const antel = toNumberSafe(it["maximo_dias_antelacion"]);
-    const dias = fmtDaysAvailable(it["dias_disponible"]);
+    const dias = (it["dias_disponible"] || "").toString().trim().replace(/\s+/g, " ");
 
     const ll = getLatLon(it);
     const geoLine = ll
-      ? `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">📍 Ver mapa</a> ·
-         <a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">🚗 Cómo llegar</a>`
+      ? `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Ver mapa</a>
+         · <a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Cómo llegar</a>`
       : "";
 
     const distLine = (it.__distKm != null)
-      ? `📍 A ${it.__distKm.toFixed(1)} km de ti`
+      ? `A ${it.__distKm.toFixed(1)} km de ti`
       : "";
 
-    const b = [];
-    if (tipo) b.push(badgeHTML(tipo));
-    if (infra) b.push(badgeHTML(infra));
-    if (caravana === true) b.push(badgeHTML("🚐 Caravana"));
-    if (pernocta === true) b.push(badgeHTML("🏕 Pernocta"));
-    if (grupos === true) b.push(badgeHTML("👥 Grupos"));
-    if (maxPers != null) b.push(badgeHTML(`👤 Máx ${Math.round(maxPers)}`));
+    const chips = [];
+    if (tipo) chips.push(badgeHTML(tipo));
+    if (infra) chips.push(badgeHTML(infra));
+    if (caravana === true) chips.push(badgeHTML("Caravana"));
+    if (pernocta === true) chips.push(badgeHTML("Pernocta"));
+    if (grupos === true) chips.push(badgeHTML("Grupos"));
+    if (maxPers != null) chips.push(badgeHTML(`Máx ${Math.round(maxPers)}`));
 
     return `
-      <li style="margin-bottom:12px">
-        <strong>🌿 ${escapeHTML(nombre || "Actividad")}</strong>
-        ${b.length ? `<div style="margin-top:6px">${b.join("")}</div>` : ""}
+      <li class="item">
+        <div class="title">${escapeHTML(nombre || "Actividad")}</div>
+        ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
 
-        ${desc ? `<div class="muted" style="margin-top:6px">📝 ${escapeHTML(clampText(desc, 170))}</div>` : ""}
+        ${desc ? `<div class="muted">${escapeHTML(desc)}</div>` : ""}
 
-        ${dias ? `<div class="muted" style="margin-top:6px">📅 Días disponible: ${escapeHTML(dias)}</div>` : ""}
-        ${antel != null ? `<div class="muted" style="margin-top:6px">⏳ Reserva: hasta ${Math.round(antel)} días de antelación</div>` : ""}
+        ${dias ? `<div class="muted">Días: ${escapeHTML(dias)}</div>` : ""}
+        ${antel != null ? `<div class="muted">Reserva: hasta ${Math.round(antel)} días de antelación</div>` : ""}
 
-        ${distLine ? `<div class="muted" style="margin-top:6px">${escapeHTML(distLine)}</div>` : ""}
-        ${geoLine ? `<div class="muted" style="margin-top:6px">${geoLine}</div>` : ""}
+        ${distLine ? `<div class="muted">${escapeHTML(distLine)}</div>` : ""}
+        ${geoLine ? `<div class="muted">${geoLine}</div>` : ""}
       </li>
     `;
   }
 
-  // ----- ITINERARIOS: render ciudadano con campos reales -----
+  // --- ITINERARIOS (✅ distancia en METROS -> km) ---
   if (datasetKey === "itinerarios") {
     const matricula = (it["itinerario_matricula"] || "").trim();
     const nombre = (it["itinerario_nombre"] || "").trim();
+
     const inicio = (it["itinerario_inicio"] || "").trim();
     const fin = (it["itinerario_fin"] || "").trim();
 
-    const distancia = fmtKm(it["itinerario_distancia"]);
+    // ✅ aquí está el fix clave
+    const distanciaKm = fmtKmFromMeters(it["itinerario_distancia"]);
+
     const altMin = fmtMeters(it["itinerario_altura_minima"]);
     const altMax = fmtMeters(it["itinerario_altura_maxima"]);
     const desnPos = fmtMeters(it["itinerario_desnivel_positivo"]);
@@ -431,82 +376,103 @@ function buildItemHTML(datasetKey, it, keys) {
 
     const clase = (it["itinerario_clase"] || "").trim();
     const modalidad = (it["itinerario_modalidad"] || "").trim();
-    const municipios = (it["municipios_nombres"] || "").trim();
-    const espacios = (it["espacios_naturales"] || "").trim();
+
+    // Limpieza: municipios/espacios con separadores feos tipo "A|B|C"
+    const municipios = (it["municipios_nombres"] || "").trim().replaceAll("|", ", ");
+    const espacios = (it["espacios_naturales"] || "").trim().replaceAll("|", ", ");
 
     const title = [matricula, nombre].filter(Boolean).join(" — ") || "Itinerario";
 
-    const line1Parts = [];
-    if (distancia) line1Parts.push(`📏 ${distancia} km`);
-    if (clase) line1Parts.push(`🏷 ${clase}`);
-    if (modalidad) line1Parts.push(`🥾 ${modalidad}`);
-    const line1 = line1Parts.join(" · ");
+    const meta = [];
+    if (distanciaKm) meta.push(`${distanciaKm} km`);
+    if (clase) meta.push(clase);
+    if (modalidad) meta.push(modalidad);
 
-    const line2Parts = [];
-    if (altMin || altMax) line2Parts.push(`⛰ ${altMin || "?"}–${altMax || "?"} m`);
-    if (desnPos) line2Parts.push(`⬆️ +${desnPos} m`);
-    if (desnNeg) line2Parts.push(`⬇️ -${desnNeg} m`);
-    const line2 = line2Parts.join(" · ");
+    const alt = [];
+    if (altMin || altMax) alt.push(`${altMin || "?"}–${altMax || "?"} m`);
+    if (desnPos) alt.push(`+${desnPos} m`);
+    if (desnNeg) alt.push(`-${desnNeg} m`);
 
-    const line3 = (inicio || fin) ? `🧭 ${[inicio, fin].filter(Boolean).join(" → ")}` : "";
-    const line4 = municipios ? `🏛 ${municipios}` : "";
-    const line5 = espacios ? `🌿 ${espacios}` : "";
+    const route = (inicio || fin) ? `${[inicio, fin].filter(Boolean).join(" → ")}` : "";
 
     return `
-      <li>
-        <strong>${escapeHTML(title)}</strong>
-        ${line1 ? `<div class="muted">${escapeHTML(line1)}</div>` : ""}
-        ${line2 ? `<div class="muted">${escapeHTML(line2)}</div>` : ""}
-        ${line3 ? `<div class="muted">${escapeHTML(line3)}</div>` : ""}
-        ${line4 ? `<div class="muted">${escapeHTML(line4)}</div>` : ""}
-        ${line5 ? `<div class="muted">${escapeHTML(line5)}</div>` : ""}
+      <li class="item">
+        <div class="title">${escapeHTML(title)}</div>
+        ${meta.length ? `<div class="muted">${escapeHTML(meta.join(" · "))}</div>` : ""}
+        ${alt.length ? `<div class="muted">${escapeHTML(alt.join(" · "))}</div>` : ""}
+        ${route ? `<div class="muted">${escapeHTML(route)}</div>` : ""}
+        ${municipios ? `<div class="muted">${escapeHTML(municipios)}</div>` : ""}
+        ${espacios ? `<div class="muted">${escapeHTML(espacios)}</div>` : ""}
       </li>
     `;
   }
 
-  // ----- PUNTOS: render bonito + compartir -----
+  // --- PUNTOS (✅ “Leer más” para no cortar) ---
   if (datasetKey === "puntos") {
     const nombre = (it["punto_interes_nombre"] || "").trim();
     const tipo = (it["punto_interes_tipo"] || "").trim();
     const subtipo = (it["punto_interes_subtipo"] || "").trim();
     const espacio = (it["espacio_natural_nombre"] || "").trim();
-    const desc = (it["punto_interes_descripcion"] || "").trim();
+    const descFull = (it["punto_interes_descripcion"] || "").trim();
 
     const ll = getLatLon(it);
     const mapLinks = ll
-      ? `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">📍 Ver mapa</a> ·
-         <a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">🚗 Cómo llegar</a>`
+      ? `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Ver mapa</a>
+         · <a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Cómo llegar</a>`
       : "";
+
+    const needsMore = descFull.length > 180;
+    const shortDesc = clampText(descFull, 180);
+
+    const uid = (nombre + "|" + tipo + "|" + subtipo + "|" + (ll ? ll.lat : "") + "|" + (ll ? ll.lon : "")).slice(0, 120);
+    const safeUID = btoa(unescape(encodeURIComponent(uid))).replaceAll("=", "");
 
     const fullText = `${nombre}${tipo ? " (" + tipo + ")" : ""}${subtipo ? " - " + subtipo : ""}\n` +
       `${espacio ? "Espacio natural: " + espacio + "\n" : ""}` +
-      `${desc ? desc + "\n" : ""}` +
+      `${descFull ? descFull + "\n" : ""}` +
       `${ll ? "Mapa: " + mapsViewUrl(ll.lat, ll.lon) : ""}`;
 
-    const shortDesc = clampText(desc, 160);
-
     return `
-      <li style="margin-bottom:12px">
-        <strong>📍 ${escapeHTML(nombre || "Punto de interés")}</strong>
-        <div style="margin-top:6px">
+      <li class="item">
+        <div class="title">${escapeHTML(nombre || "Punto de interés")}</div>
+
+        <div class="chips">
           ${badgeHTML(tipo)}
           ${badgeHTML(subtipo)}
         </div>
 
-        ${espacio ? `<div class="muted" style="margin-top:6px">🌿 ${escapeHTML(espacio)}</div>` : ""}
+        ${espacio ? `<div class="muted">${escapeHTML(espacio)}</div>` : ""}
 
-        ${desc ? `<div class="muted" style="margin-top:6px">📝 ${escapeHTML(shortDesc)}</div>` : ""}
+        ${
+          descFull
+            ? `
+              <div class="muted" id="poi-desc-${safeUID}">
+                ${escapeHTML(shortDesc)}
+              </div>
+              ${
+                needsMore
+                  ? `<button class="linkbtn" type="button" data-poi-more="1" data-poi-id="${safeUID}">
+                      Leer más
+                    </button>`
+                  : ``
+              }
+              <div class="poi-full" id="poi-full-${safeUID}" style="display:none">
+                ${escapeHTML(descFull)}
+              </div>
+            `
+            : ""
+        }
 
-        ${mapLinks ? `<div class="muted" style="margin-top:6px">${mapLinks}</div>` : ""}
+        ${mapLinks ? `<div class="muted">${mapLinks}</div>` : ""}
 
-        <div class="muted" style="margin-top:6px">
-          <a href="#" data-share="1" data-title="${escapeHTML(nombre || "Punto de interés")}" data-text="${escapeHTML(fullText)}">📤 Compartir</a>
+        <div class="muted">
+          <a href="#" data-share="1" data-title="${escapeHTML(nombre || "Punto de interés")}" data-text="${escapeHTML(fullText)}">Compartir</a>
         </div>
       </li>
     `;
   }
 
-  // ----- RESTO: genérico -----
+  // --- Genérico ---
   const name = keys.nameKey ? (it[keys.nameKey] || "") : "";
   const place = keys.placeKey ? (it[keys.placeKey] || "") : "";
 
@@ -519,27 +485,19 @@ function buildItemHTML(datasetKey, it, keys) {
   const ll = getLatLon(it);
   let geoLine = "";
   if (ll) {
-    geoLine = `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">📍 Ver mapa</a> · ` +
-              `<a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">🚗 Cómo llegar</a>`;
+    geoLine = `<a href="${mapsViewUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Ver mapa</a> · ` +
+              `<a href="${mapsNavUrl(ll.lat, ll.lon)}" target="_blank" rel="noreferrer">Cómo llegar</a>`;
   }
 
-  const { email, phone } = getContact(it);
-  const phoneClean = cleanPhone(phone);
-  let contactLine = "";
-  const parts = [];
-  if (phoneClean) parts.push(`<a href="tel:${phoneClean}">📞 Llamar</a>`);
-  if (email) parts.push(`<a href="mailto:${encodeURIComponent(email)}">✉️ Email</a>`);
-  if (parts.length) contactLine = parts.join(" · ");
-
   return `
-    <li>
-      ${escapeHTML(main)}
+    <li class="item">
+      <div class="title">${escapeHTML(main)}</div>
       ${geoLine ? `<div class="muted">${geoLine}</div>` : ""}
-      ${contactLine ? `<div class="muted">${contactLine}</div>` : ""}
     </li>
   `;
 }
 
+// ====== Cards ======
 function renderFilters(datasetKey) {
   const st = cardState[datasetKey];
   const id = `card-${datasetKey}`;
@@ -554,16 +512,6 @@ function renderFilters(datasetKey) {
       </select>
     ` : "";
 
-  const dateUI = (datasetKey === "naturaleza" && st.keys.dateKey)
-    ? `
-      <select id="${id}-date" class="smallbtn">
-        <option value="all">Fecha: Todas</option>
-        <option value="today">Hoy</option>
-        <option value="weekend">Fin de semana</option>
-        <option value="month">Este mes</option>
-      </select>
-    ` : "";
-
   const typeUI = (datasetKey === "puntos" && (st.poiTypes || []).length)
     ? `
       <select id="${id}-type" class="smallbtn">
@@ -575,13 +523,13 @@ function renderFilters(datasetKey) {
   const natureUI = (datasetKey === "naturaleza")
     ? `
       <label class="chip muted" style="margin-right:10px">
-        <input type="checkbox" id="${id}-caravana" ${st.natCaravana ? "checked" : ""}/> 🚐 Caravana
+        <input type="checkbox" id="${id}-caravana" ${st.natCaravana ? "checked" : ""}/> Caravana
       </label>
       <label class="chip muted" style="margin-right:10px">
-        <input type="checkbox" id="${id}-pernocta" ${st.natPernocta ? "checked" : ""}/> 🏕 Pernocta
+        <input type="checkbox" id="${id}-pernocta" ${st.natPernocta ? "checked" : ""}/> Pernocta
       </label>
       <label class="chip muted" style="margin-right:10px">
-        <input type="checkbox" id="${id}-grupos" ${st.natGrupos ? "checked" : ""}/> 👥 Grupos
+        <input type="checkbox" id="${id}-grupos" ${st.natGrupos ? "checked" : ""}/> Grupos
       </label>
       <select id="${id}-gsize" class="smallbtn">
         <option value="all">Grupo: cualquiera</option>
@@ -590,11 +538,11 @@ function renderFilters(datasetKey) {
         <option value="20">20+</option>
         <option value="40">40+</option>
       </select>
-      <button id="${id}-near" class="smallbtn" type="button">📍 Cerca de mí</button>
+      <button id="${id}-near" class="smallbtn" type="button">Cerca de mí</button>
     ` : "";
 
-  if (!diffUI && !dateUI && !typeUI && !natureUI) return "";
-  return `<div class="row" style="margin-top:10px">${diffUI}${dateUI}${typeUI}${natureUI}</div>`;
+  if (!diffUI && !typeUI && !natureUI) return "";
+  return `<div class="row" style="margin-top:10px">${diffUI}${typeUI}${natureUI}</div>`;
 }
 
 function renderCard(datasetKey) {
@@ -625,7 +573,7 @@ function renderCard(datasetKey) {
 
       ${
         total
-          ? `<ul id="${id}-list">${listHTML}</ul>`
+          ? `<ul class="clean" id="${id}-list">${listHTML}</ul>`
           : `<div class="muted" style="margin-top:10px">No hay registros para este municipio.</div>`
       }
 
@@ -649,19 +597,27 @@ function recomputeFiltered(datasetKey) {
   if (datasetKey === "itinerarios" && st.keys.difficultyKey) {
     out = applyDifficultyFilter(out, st.keys.difficultyKey, st.diffLevel);
   }
-  if (datasetKey === "naturaleza" && st.keys.dateKey) {
-    out = applyDateQuickFilter(out, st.keys.dateKey, st.dateMode);
-  }
   if (datasetKey === "puntos") {
     out = applyPoiTypeFilter(out, st.poiType);
   }
   if (datasetKey === "naturaleza") {
-    out = applyNatureFilters(out, st);
+    // filtros naturaleza
+    if (st.natCaravana) out = out.filter(it => toBoolLoose(it["permite_caravana"]) === true);
+    if (st.natPernocta) out = out.filter(it => toBoolLoose(it["pernocta"]) === true);
+    if (st.natGrupos) out = out.filter(it => toBoolLoose(it["actividad_para_grupos"]) === true);
+    if (st.natGroupSize && st.natGroupSize !== "all") {
+      const need = parseInt(st.natGroupSize, 10);
+      out = out.filter(it => {
+        const mx = toNumberSafe(it["maximo_personas"]);
+        if (mx === null) return false;
+        return mx >= need;
+      });
+    }
   }
 
   out = applySearch(out, st.query);
 
-  // Naturaleza: si hay ubicación y sortNear -> calcula distancia + ordena
+  // Naturaleza: cerca de mí
   if (datasetKey === "naturaleza" && st.userLoc && st.sortNear) {
     const { lat, lon } = st.userLoc;
     out = out
@@ -713,10 +669,8 @@ function attachCardHandlers(datasetKey) {
   const $search = document.getElementById(`${id}-search`);
   const $more = document.getElementById(`${id}-more`);
   const $diff = document.getElementById(`${id}-diff`);
-  const $date = document.getElementById(`${id}-date`);
   const $type = document.getElementById(`${id}-type`);
 
-  // naturaleza filters
   const $caravana = document.getElementById(`${id}-caravana`);
   const $pernocta = document.getElementById(`${id}-pernocta`);
   const $grupos = document.getElementById(`${id}-grupos`);
@@ -734,14 +688,6 @@ function attachCardHandlers(datasetKey) {
   if ($diff) {
     $diff.addEventListener("change", () => {
       st.diffLevel = $diff.value;
-      recomputeFiltered(datasetKey);
-      updateCardDOM(datasetKey);
-    });
-  }
-
-  if ($date) {
-    $date.addEventListener("change", () => {
-      st.dateMode = $date.value;
       recomputeFiltered(datasetKey);
       updateCardDOM(datasetKey);
     });
@@ -790,17 +736,17 @@ function attachCardHandlers(datasetKey) {
         alert("Tu navegador no soporta geolocalización.");
         return;
       }
-      $near.textContent = "📍 Obteniendo ubicación…";
+      $near.textContent = "Obteniendo ubicación…";
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           st.userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
           st.sortNear = true;
-          $near.textContent = "📍 Cerca de mí ✅";
+          $near.textContent = "Cerca de mí ✓";
           recomputeFiltered(datasetKey);
           updateCardDOM(datasetKey);
         },
         () => {
-          $near.textContent = "📍 Cerca de mí";
+          $near.textContent = "Cerca de mí";
           alert("No se pudo obtener tu ubicación (permiso denegado o error).");
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
@@ -815,19 +761,38 @@ function attachCardHandlers(datasetKey) {
     });
   }
 
-  // Compartir puntos (delegación)
-  if (datasetKey === "puntos") {
-    const card = document.getElementById(`card-${datasetKey}`);
-    if (card) {
-      card.addEventListener("click", async (e) => {
-        const a = e.target.closest("a[data-share='1']");
-        if (!a) return;
+  // Delegación: compartir + leer más (puntos)
+  const card = document.getElementById(`card-${datasetKey}`);
+  if (card && datasetKey === "puntos") {
+    card.addEventListener("click", async (e) => {
+      const share = e.target.closest("a[data-share='1']");
+      if (share) {
         e.preventDefault();
-        const title = a.getAttribute("data-title") || "Punto de interés";
-        const text = a.getAttribute("data-text") || "";
+        const title = share.getAttribute("data-title") || "Punto de interés";
+        const text = share.getAttribute("data-text") || "";
         await shareText(title, text);
-      });
-    }
+        return;
+      }
+
+      const moreBtn = e.target.closest("button[data-poi-more='1']");
+      if (moreBtn) {
+        const pid = moreBtn.getAttribute("data-poi-id");
+        const full = document.getElementById(`poi-full-${pid}`);
+        const desc = document.getElementById(`poi-desc-${pid}`);
+        if (!full || !desc) return;
+
+        const isOpen = full.style.display !== "none";
+        if (isOpen) {
+          full.style.display = "none";
+          moreBtn.textContent = "Leer más";
+        } else {
+          full.style.display = "block";
+          desc.innerHTML = full.innerHTML; // sustituye por texto completo
+          full.style.display = "none";
+          moreBtn.textContent = "Ver menos";
+        }
+      }
+    });
   }
 }
 
@@ -857,9 +822,7 @@ function showMunicipio(m) {
 
     let poiTypes = [];
     if (key === "puntos") {
-      const set = new Set(
-        items.map(r => (r["punto_interes_tipo"] || "").trim()).filter(Boolean)
-      );
+      const set = new Set(items.map(r => (r["punto_interes_tipo"] || "").trim()).filter(Boolean));
       poiTypes = Array.from(set).sort((a,b)=>a.localeCompare(b, "es"));
     }
 
@@ -871,11 +834,9 @@ function showMunicipio(m) {
       limit: LIMIT_START,
       query: "",
       diffLevel: "all",
-      dateMode: "all",
       poiType: "all",
       poiTypes,
 
-      // naturaleza extra
       natCaravana: false,
       natPernocta: false,
       natGrupos: false,
@@ -900,9 +861,10 @@ function showMunicipio(m) {
         <strong>${escapeHTML(summary)}</strong>
       </div>
       <div class="btnbar" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-        <button id="shareBtn" class="smallbtn">📤 Compartir ficha</button>
+        <button id="shareBtn" class="smallbtn">Compartir ficha</button>
       </div>
     </div>
+
     <div class="grid">
       ${renderCard("naturaleza")}
       ${renderCard("itinerarios")}
@@ -920,37 +882,37 @@ function showMunicipio(m) {
 
 // ====== Init ======
 function initMunicipiosUI() {
-const sel = document.getElementById("municipio");
-const btn = document.getElementById("btn");
+  const sel = document.getElementById("municipio");
+  const btn = document.getElementById("btn");
 
-if (!sel || !btn) {
-  console.error("Faltan elementos en el HTML:", { sel, btn });
-  return;
-}
+  if (!sel || !btn) {
+    console.error("Faltan elementos en el HTML:", { sel, btn });
+    return;
+  }
 
-  $municipio.innerHTML = "";
+  // ⚠️ usa sel/btn, NO $municipio/$btn si cambiaste IDs en el HTML
+  sel.innerHTML = "";
   MUNICIPIOS.forEach(m => {
     const opt = document.createElement("option");
     opt.value = m;
     opt.textContent = m;
-    $municipio.appendChild(opt);
+    sel.appendChild(opt);
   });
 
-  $btn.addEventListener("click", () => showMunicipio($municipio.value));
+  btn.addEventListener("click", () => showMunicipio(sel.value));
 }
 
-function maybeAutoShow() {
-  const saved = localStorage.getItem("favMunicipio");
-  if (saved && MUNICIPIOS.includes(saved)) showMunicipio(saved);
-}
+// No recordamos municipio (por tu petición)
+function maybeAutoShow() { /* no-op */ }
 
-initMunicipiosUI();
-
-loadAll()
-  .then(maybeAutoShow)
-  .catch(err => {
-    $status.innerHTML = `<span class="error">Error: ${escapeHTML(err.message || String(err))}</span>`;
-  });
+document.addEventListener("DOMContentLoaded", () => {
+  initMunicipiosUI();
+  loadAll()
+    .then(maybeAutoShow)
+    .catch(err => {
+      $status.innerHTML = `<span class="error">Error: ${escapeHTML(err.message || String(err))}</span>`;
+    });
+});
 
 // ===== Install Banner (Android + iOS) =====
 let deferredInstallPrompt = null;
@@ -969,13 +931,11 @@ function initInstallBanner() {
     window.matchMedia("(display-mode: standalone)").matches ||
     window.navigator.standalone === true;
 
-  if (isStandalone) return; // si ya está instalada, no mostramos banner
+  if (isStandalone) return;
 
-  // Si quieres que SIEMPRE salga, comenta estas 2 líneas:
   const dismissed = localStorage.getItem("installBannerDismissed");
   if (dismissed === "1") return;
 
-  // iOS: mostramos banner que abre instrucciones
   if (isIOS) {
     banner.style.display = "block";
     btn.textContent = "Cómo instalar";
@@ -994,7 +954,6 @@ function initInstallBanner() {
     if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
   } else {
-    // Android: esperamos a que Chrome dispare el evento
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
@@ -1022,5 +981,5 @@ function initInstallBanner() {
     localStorage.setItem("installBannerDismissed", "1");
   });
 }
-try { initInstallBanner(); } catch (e) { console.warn(e); }
 
+try { initInstallBanner(); } catch (e) { console.warn(e); }
