@@ -301,7 +301,7 @@ async function loadAll() {
   }
 
   cache = loaded;
-  $status.textContent = "Listo ✅";
+  $status.textContent = "";
   $btn.disabled = false;
 }
 
@@ -584,7 +584,7 @@ function renderCard(datasetKey) {
       }
 
       <div class="muted footlink">
-        <a href="${ds.source}" target="_blank" rel="noreferrer">Ver fuente oficial</a>
+        <a href="${ds.source}" target="_blank" rel="noreferrer"></a>
       </div>
     </div>
   `;
