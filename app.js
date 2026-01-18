@@ -82,13 +82,6 @@ function fmtMeters(x) {
   return `${Math.round(n)}`;
 }
 
-// km a 1 decimal (cuando ya es km)
-function fmtKm(x) {
-  const n = toNumberSafe(x);
-  if (n === null) return "";
-  return `${n.toFixed(1)}`;
-}
-
 // ✅ Itinerarios: el CSV trae distancia en METROS
 function fmtKmFromMeters(metersVal) {
   const m = toNumberSafe(metersVal);
@@ -224,10 +217,27 @@ function filtroMunicipioFlexible(items, municipio) {
   });
 }
 
-function applySearch(items, q) {
+// ✅ Buscador SOLO por títulos (y en itinerarios también por matrícula)
+function applySearch(items, datasetKey, q) {
   const query = normText(q);
   if (!query) return items;
-  return items.filter(it => normText(Object.values(it).join(" ")).includes(query));
+
+  return items.filter(it => {
+    let hay = "";
+
+    if (datasetKey === "naturaleza") {
+      hay = it["actividad_nombre"] || "";
+    } else if (datasetKey === "itinerarios") {
+      hay = `${it["itinerario_matricula"] || ""} ${it["itinerario_nombre"] || ""}`;
+    } else if (datasetKey === "puntos") {
+      hay = it["punto_interes_nombre"] || "";
+    } else {
+      // fallback por si algún día añades otro dataset
+      hay = it["nombre"] || it["titulo"] || it["title"] || "";
+    }
+
+    return normText(hay).includes(query);
+  });
 }
 
 function applyDifficultyFilter(items, difficultyKey, level) {
@@ -302,7 +312,7 @@ async function loadAll() {
 
 // ====== Render items ======
 function buildItemHTML(datasetKey, it, keys) {
-  // --- NATURALEZA (sin dropdown de grupos) ---
+  // --- NATURALEZA ---
   if (datasetKey === "naturaleza") {
     const nombre = (it["actividad_nombre"] || "").trim();
     const tipo = (it["actividad_tipo"] || "").trim();
@@ -348,7 +358,7 @@ function buildItemHTML(datasetKey, it, keys) {
     `;
   }
 
-  // --- ITINERARIOS (✅ distancia en METROS -> km) ---
+  // --- ITINERARIOS ---
   if (datasetKey === "itinerarios") {
     const matricula = (it["itinerario_matricula"] || "").trim();
     const nombre = (it["itinerario_nombre"] || "").trim();
@@ -357,7 +367,6 @@ function buildItemHTML(datasetKey, it, keys) {
     const fin = (it["itinerario_fin"] || "").trim();
 
     const distanciaKm = fmtKmFromMeters(it["itinerario_distancia"]);
-
     const altMin = fmtMeters(it["itinerario_altura_minima"]);
     const altMax = fmtMeters(it["itinerario_altura_maxima"]);
     const desnPos = fmtMeters(it["itinerario_desnivel_positivo"]);
@@ -395,7 +404,7 @@ function buildItemHTML(datasetKey, it, keys) {
     `;
   }
 
-  // --- PUNTOS (✅ Leer más / Ver menos bien) ---
+  // --- PUNTOS ---
   if (datasetKey === "puntos") {
     const nombre = (it["punto_interes_nombre"] || "").trim();
     const tipo = (it["punto_interes_tipo"] || "").trim();
@@ -564,10 +573,6 @@ function renderCard(datasetKey) {
           ? `<button class="smallbtn" style="margin-top:10px" id="${id}-more">Ver más (+${STEP_MORE})</button>`
           : ``
       }
-
-      <div class="muted footlink">
-        <a href="${ds.source}" target="_blank" rel="noreferrer">Ver fuente oficial</a>
-      </div>
     </div>
   `;
 }
@@ -588,7 +593,8 @@ function recomputeFiltered(datasetKey) {
     if (st.natGrupos) out = out.filter(it => toBoolLoose(it["actividad_para_grupos"]) === true);
   }
 
-  out = applySearch(out, st.query);
+  // ✅ buscador solo por títulos
+  out = applySearch(out, datasetKey, st.query);
 
   // Naturaleza: cerca de mí
   if (datasetKey === "naturaleza" && st.userLoc && st.sortNear) {
